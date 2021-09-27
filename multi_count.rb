@@ -71,7 +71,12 @@ module MultiCount
       keyed_scopes = symbol_keyed_scopes.presence || {}
       keyed_scopes.merge! scopes[0] if 1==scopes.length && scopes[0].is_a?(Hash)
       keys, scopes = keyed_scopes.present? ? [keyed_scopes.keys, keyed_scopes.values] : [nil, scopes]
-      result_columns = scopes.map {|scope| scope_to_result_column(scope) }
+      # Numbered comment injection below exists to trick ActiveRecord into generating
+      # unique aliases for each result column. ActiveRecord column aliases are a
+      # truncatated naive transformation of the result column's SQL, and if two counts
+      # are prefixed by a common (longish) filter, without the comments they will get 
+      # the same alias and one will clobber the other.
+      result_columns = scopes.each_with_index.map {|scope,i| "/*c#{i}*/ #{scope_to_result_column(scope)}" }
       result_columns << group_by.to_s unless group_by.nil?
       result_rows = all.group(result_columns).count('*')
       iterable_rows = group_by.nil? ? (result_rows.presence || {(scopes.length.times.map {nil})=>0}) : result_rows
